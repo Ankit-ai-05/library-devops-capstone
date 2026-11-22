@@ -1,0 +1,13 @@
+---
+- name: Phase 5 - Application Deployment & Configuration Management
+  hosts: local
+  tasks:
+    - name: Ensure application directory exists
+      file:
+        path: "{{ ansible_env.HOME }}/library-devops-capstone"
+        state: directory
+
+    - name: Deploy Library Management System via Docker Compose
+      command: docker compose up -d --build
+      args:
+        chdir: "{{ ansible_env.HOME }}/library-devops-capstone"
