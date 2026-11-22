@@ -17,7 +17,7 @@ pipeline {
         }
         stage('Automated Testing (Pytest)') {
             steps {
-                sh "docker run --rm ${IMAGE_NAME}:${DOCKER_TAG} pytest -v"
+                sh "docker run --rm ${IMAGE_NAME}:${DOCKER_TAG} python -m pytest -v"
             }
         }
         stage('Security & Code Quality (SonarQube)') {
