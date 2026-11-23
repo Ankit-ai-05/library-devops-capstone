@@ -31,4 +31,4 @@ A cloud-native Library Management System built with Python Flask and PostgreSQL,
 - ansible/ : Playbooks for Docker/K8s setup and app deployment
 - terraform/ : Modular IaC with variables, outputs, and network module
 - monitoring/ & logging/ : Prometheus, Grafana, and Fluentd configurations
-- deployment/ & gitops/ : Blue-Green Nginx routing and ArgoCD GitOps manifest
+- deployment/ & gitops/ : Blue-Green Nginx routing and ArgoCD GitOps manifesting
