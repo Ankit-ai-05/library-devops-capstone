@@ -1,4 +1,5 @@
 import os
+from datetime import datetime, timedelta
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify
 from flask_sqlalchemy import SQLAlchemy
 
@@ -11,6 +12,7 @@ db = SQLAlchemy(app)
 
 DEPARTMENTS = ["Computer Science", "AI & ML", "Literature", "Engineering", "Management"]
 DEFAULT_COVER = "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=400&q=80"
+FINE_PER_DAY = 10
 
 class Book(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -19,6 +21,18 @@ class Book(db.Model):
     department = db.Column(db.String(50), default="Computer Science")
     image_url = db.Column(db.String(300), default=DEFAULT_COVER)
     status = db.Column(db.String(20), default="Available")
+    issued_to = db.Column(db.String(100), nullable=True)
+    roll_no = db.Column(db.String(50), nullable=True)
+    issue_date = db.Column(db.String(20), nullable=True)
+    due_date = db.Column(db.String(20), nullable=True)
+
+    @property
+    def fine(self):
+        if self.status != "Issued" or not self.due_date:
+            return 0
+        due = datetime.strptime(self.due_date, "%Y-%m-%d").date()
+        overdue_days = (datetime.now().date() - due).days
+        return overdue_days * FINE_PER_DAY if overdue_days > 0 else 0
 
     def to_dict(self):
         return {
@@ -28,13 +42,22 @@ class Book(db.Model):
             "department": self.department,
             "image_url": self.image_url,
             "status": self.status,
+            "issued_to": self.issued_to,
+            "roll_no": self.roll_no,
+            "issue_date": self.issue_date,
+            "due_date": self.due_date,
+            "fine": self.fine,
         }
 
 def seed_books():
     if Book.query.count() == 0:
+        today = datetime.now().date()
         sample_books = [
             Book(title="Clean Code", author="Robert C. Martin", department="Computer Science",
-                 image_url="https://images.unsplash.com/photo-1515879218367-8466d910aaa4?auto=format&fit=crop&w=400&q=80"),
+                 image_url="https://images.unsplash.com/photo-1515879218367-8466d910aaa4?auto=format&fit=crop&w=400&q=80",
+                 status="Issued", issued_to="Ankit", roll_no="2301730282",
+                 issue_date=(today - timedelta(days=9)).strftime("%Y-%m-%d"),
+                 due_date=(today - timedelta(days=2)).strftime("%Y-%m-%d")),
             Book(title="Deep Learning", author="Ian Goodfellow", department="AI & ML",
                  image_url="https://images.unsplash.com/photo-1620712943543-bcc4688e7485?auto=format&fit=crop&w=400&q=80"),
             Book(title="The Guide", author="R.K. Narayan", department="Literature",
@@ -62,10 +85,7 @@ def index():
     if not session.get("logged_in"):
         return render_template("index.html", logged_in=False)
     selected_dept = request.args.get("dept", "All")
-    if selected_dept != "All":
-        books = Book.query.filter_by(department=selected_dept).all()
-    else:
-        books = Book.query.all()
+    books = Book.query.filter_by(department=selected_dept).all() if selected_dept != "All" else Book.query.all()
     return render_template(
         "index.html",
         logged_in=True,
@@ -81,16 +101,12 @@ def login():
     username = request.form.get("username", "").strip()
     password = request.form.get("password", "").strip()
     if username == "admin" and password == "admin123":
-        session["logged_in"] = True
-        session["user"] = "Admin"
-        session["role"] = "admin"
+        session["logged_in"], session["user"], session["role"] = True, "Admin", "admin"
         return redirect(url_for("index"))
     elif username == "student" and password == "student123":
-        session["logged_in"] = True
-        session["user"] = "Student"
-        session["role"] = "student"
+        session["logged_in"], session["user"], session["role"] = True, "Student", "student"
         return redirect(url_for("index"))
-    return render_template("index.html", logged_in=False, error="Invalid credentials! Use admin/admin123 or student/student123")
+    return render_template("index.html", logged_in=False, error="Invalid username or password!")
 
 @app.route("/logout")
 def logout():
@@ -110,23 +126,34 @@ def add_book():
         db.session.commit()
     return redirect(url_for("index"))
 
-@app.route("/toggle/<int:book_id>")
-def toggle_book(book_id):
-    if session.get("role") != "admin":
-        return redirect(url_for("index"))
-    book = db.session.get(Book, book_id)
-    if book:
-        book.status = "Issued" if book.status == "Available" else "Available"
-        db.session.commit()
-    return redirect(url_for("index"))
-
-@app.route("/borrow/<int:book_id>")
+@app.route("/borrow/<int:book_id>", methods=["POST"])
 def borrow_book(book_id):
     if not session.get("logged_in"):
         return redirect(url_for("index"))
     book = db.session.get(Book, book_id)
-    if book and book.status == "Available":
+    student_name = request.form.get("student_name", "").strip()
+    roll_no = request.form.get("roll_no", "").strip()
+    if book and book.status == "Available" and student_name and roll_no:
+        today = datetime.now().date()
         book.status = "Issued"
+        book.issued_to = student_name
+        book.roll_no = roll_no
+        book.issue_date = today.strftime("%Y-%m-%d")
+        book.due_date = (today + timedelta(days=7)).strftime("%Y-%m-%d")
+        db.session.commit()
+    return redirect(url_for("index"))
+
+@app.route("/return/<int:book_id>")
+def return_book(book_id):
+    if session.get("role") != "admin":
+        return redirect(url_for("index"))
+    book = db.session.get(Book, book_id)
+    if book:
+        book.status = "Available"
+        book.issued_to = None
+        book.roll_no = None
+        book.issue_date = None
+        book.due_date = None
         db.session.commit()
     return redirect(url_for("index"))
 
@@ -140,7 +167,6 @@ def delete_book(book_id):
         db.session.commit()
     return redirect(url_for("index"))
 
-# --- REST APIs ---
 @app.route("/api/books", methods=["GET", "POST"])
 def api_books():
     if request.method == "POST":
