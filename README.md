@@ -1,6 +1,6 @@
 # End-to-End DevOps Pipeline: Library Management System (ENSP461)
 
-A cloud-native Library Management System built with Python Flask and PostgreSQL, automated with an end-to-end DevOps pipeline covering CI/CD, Containerization, Kubernetes, Ansible, Terraform, Monitoring, Logging, Security, Blue-Green Deployment, and GitOps.
+A cloud-native Library Management System built with Python Flask and PostgreSQL, automated with an end-to-end DevOps pipeline covering CI/CD, Containerization, Kubernetes, Ansible, Terraform, Monitoring, Logging, Security, Blue-Green Deployment, and GitOps..
 
 ## Architecture Diagram
 
